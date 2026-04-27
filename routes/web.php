@@ -1,7 +1,10 @@
 <?php
-
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\BukuController;
+use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\PeminjamanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,7 +23,11 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+});
+
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -28,4 +35,20 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::resource('buku', BukuController::class);
+});
+
+Route::middleware(['auth', 'role:petugas'])->group(function () {
+    Route::get('laporan', [LaporanController::class, 'index']);
+});
+
+Route::middleware(['auth', 'role:peminjam'])->group(function () {
+    Route::get('/pinjam', [PeminjamanController::class, 'index']);
+    Route::post('/pinjam/{id}', [PeminjamanController::class, 'store']);
+    Route::post('/kembali/{id}', [PeminjamanController::class, 'kembali']);
+});
+
+
+
+require __DIR__ . '/auth.php';
