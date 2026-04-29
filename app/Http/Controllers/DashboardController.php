@@ -2,34 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use App\Models\Buku;
 use App\Models\Peminjaman;
-use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // total buku
-        $totalBuku = Buku::count();
+        $user = auth()->user();
+        $role = $user->role;
 
-        // total semua peminjaman
-        $totalPinjam = Peminjaman::count();
+        if ($role === 'admin' || $role === 'petugas') {
+            // total buku
+            $totalBuku = Buku::count();
 
-        // yang masih dipinjam
-        $dipinjam = Peminjaman::where('status', 'dipinjam')->count();
+            // total peminjaman
+            $totalPinjam = Peminjaman::count();
 
-        // data terbaru
-        $terbaru = Peminjaman::with('user', 'buku')
-            ->latest()
-            ->take(5)
-            ->get();
+            // data terbaru
+            $terbaru = Peminjaman::with('user', 'buku')
+                        ->latest()
+                        ->take(5)
+                        ->get();
 
-        return view('dashboard', compact(
-            'totalBuku',
-            'totalPinjam',
-            'dipinjam',
-            'terbaru'
-        ));
+            // daftar semua buku
+            $bukus = Buku::all();
+
+            // permintaan peminjaman yang menunggu approval
+            $permintaan = Peminjaman::with('user', 'buku')
+                            ->where('status', 'pending')
+                            ->latest()
+                            ->get();
+
+            return view('dashboard.' . $role, compact(
+                'totalBuku',
+                'totalPinjam',
+                'terbaru',
+                'bukus',
+                'permintaan'
+            ));
+        } elseif ($role === 'peminjam') {
+            // untuk peminjam, mungkin tampilkan peminjaman mereka sendiri
+            $peminjaman = Peminjaman::where('user_id', $user->id)
+                            ->with('buku')
+                            ->get();
+
+            return view('dashboard.peminjam', compact('peminjaman'));
+        }
+
+        // default
+        return view('dashboard.peminjam');
     }
 }

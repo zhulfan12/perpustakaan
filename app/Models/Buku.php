@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Buku extends Model
 {
+    protected $fillable = ['judul', 'penulis'];
     public function peminjaman()
-    {
-        return $this->hasMany(Peminjaman::class);
-    }
+{
+    return $this->hasMany(\App\Models\Peminjaman::class);
+}
+
 }

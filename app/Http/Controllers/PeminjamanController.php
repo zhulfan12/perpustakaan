@@ -2,61 +2,112 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Buku;
 use App\Models\Peminjaman;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 
 class PeminjamanController extends Controller
 {
-    // tampil halaman
     public function index()
     {
-        $buku = Buku::all();
+        $bukus = Buku::withCount([
+            'peminjaman as approved' => function ($q) {
+                $q->where('status', 'approved');
+            }
+        ])->get();
 
-        $pinjam = Peminjaman::with('buku')
-            ->where('user_id', Auth::id())
-            ->get();
+        $requestedBukuIds = Peminjaman::where('user_id', Auth::id())
+            ->where('status', 'pending')
+            ->pluck('buku_id')
+            ->toArray();
 
-        return view('pinjam.index', compact('buku', 'pinjam'));
+        return view('pinjam.index', compact('bukus', 'requestedBukuIds'));
     }
 
-    // proses pinjam buku
-    public function store($id)
+    public function store(Request $request)
     {
-        $buku = Buku::findOrFail($id);
+        $request->validate([
+            'buku_id' => 'required|exists:bukus,id',
+        ]);
 
-        // cek stok
-        if ($buku->stok <= 0) {
-            return back()->with('error', 'Stok buku habis');
+        if (Peminjaman::where('buku_id', $request->buku_id)->where('status', 'approved')->exists()) {
+            return redirect()->route('pinjam.index')
+                ->with('error', 'Buku sudah sedang dipinjam.');
+        }
+
+        if (Peminjaman::where('user_id', Auth::id())
+            ->where('buku_id', $request->buku_id)
+            ->where('status', 'pending')
+            ->exists()) {
+            return redirect()->route('pinjam.index')
+                ->with('error', 'Permintaan pinjaman untuk buku ini sudah diajukan.');
         }
 
         Peminjaman::create([
             'user_id' => Auth::id(),
-            'buku_id' => $id,
+            'buku_id' => $request->buku_id,
             'tanggal_pinjam' => now(),
-            'status' => 'dipinjam'
+            'status' => 'pending',
         ]);
 
-        // kurangi stok
-        $buku->decrement('stok');
-
-        return back()->with('success', 'Buku berhasil dipinjam');
+        return redirect()->route('pinjam.index')->with('success', 'Permintaan peminjaman berhasil diajukan. Tunggu persetujuan staff.');
     }
 
-    // proses kembalikan buku
+    public function requests()
+    {
+        $permintaan = Peminjaman::with('user', 'buku')
+            ->where('status', 'pending')
+            ->latest()
+            ->get();
+
+        return view('pinjam.requests', compact('permintaan'));
+    }
+
+    public function approve($id)
+    {
+        $peminjaman = Peminjaman::findOrFail($id);
+
+        if ($peminjaman->status !== 'pending') {
+            return redirect()->back()->with('error', 'Permintaan sudah diproses.');
+        }
+
+        if (Peminjaman::where('buku_id', $peminjaman->buku_id)->where('status', 'approved')->exists()) {
+            return redirect()->back()->with('error', 'Buku sudah disetujui untuk peminjaman lain.');
+        }
+
+        $peminjaman->status = 'approved';
+        $peminjaman->save();
+
+        return redirect()->back()->with('success', 'Permintaan peminjaman disetujui.');
+    }
+
+    public function reject($id)
+    {
+        $peminjaman = Peminjaman::findOrFail($id);
+
+        if ($peminjaman->status !== 'pending') {
+            return redirect()->back()->with('error', 'Permintaan sudah diproses.');
+        }
+
+        $peminjaman->status = 'rejected';
+        $peminjaman->save();
+
+        return redirect()->back()->with('success', 'Permintaan peminjaman ditolak.');
+    }
+
     public function kembali($id)
     {
-        $data = Peminjaman::findOrFail($id);
+        $peminjaman = Peminjaman::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->where('status', 'approved')
+            ->firstOrFail();
 
-        $data->update([
-            'status' => 'dikembalikan',
-            'tanggal_kembali' => now()
-        ]);
+        $peminjaman->status = 'returned';
+        $peminjaman->tanggal_kembali = now();
+        $peminjaman->save();
 
-        // tambah stok lagi
-        $data->buku->increment('stok');
-
-        return back()->with('success', 'Buku berhasil dikembalikan');
+        return redirect()->route('dashboard')->with('success', 'Buku berhasil dikembalikan.');
     }
 }

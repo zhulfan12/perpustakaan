@@ -1,41 +1,79 @@
-<h2>Daftar Buku</h2>
+@extends('layouts.app')
 
-@if(session('error'))
-    <p style="color:red">{{ session('error') }}</p>
-@endif
+@section('head')
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+@endsection
+
+@section('content')
+<h3>Daftar Buku</h3>
 
 @if(session('success'))
-    <p style="color:green">{{ session('success') }}</p>
+<div class="alert alert-success">
+    {{ session('success') }}
+</div>
 @endif
 
-@foreach($buku as $b)
-    <p>
-        {{ $b->judul }} (Stok: {{ $b->stok }})
+@if(session('error'))
+<div class="alert alert-danger">
+    {{ session('error') }}
+</div>
+@endif
 
-        <form action="/pinjam/{{ $b->id }}" method="POST">
-            @csrf
-            <button type="submit">Pinjam</button>
-        </form>
-    </p>
-@endforeach
-    
-<hr>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>No</th>
+            <th>Judul</th>
+            <th>Penulis</th>
+            <th>Status</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
 
-<h2>Buku Saya</h2>
+    <tbody>
+        @forelse($bukus as $index => $b)
+        <tr>
+            <td>{{ $index + 1 }}</td>
+            <td>{{ $b->judul }}</td>
+            <td>{{ $b->penulis }}</td>
 
-@foreach($pinjam as $p)
-    <p>
-        {{ $p->buku->judul }} - {{ $p->status }}
+            <td>
+                @if($b->approved)
+                    <span class="badge bg-danger">Dipinjam</span>
+                @elseif(in_array($b->id, $requestedBukuIds))
+                    <span class="badge bg-warning text-dark">Menunggu Persetujuan</span>
+                @else
+                    <span class="badge bg-success">Tersedia</span>
+                @endif
+            </td>
 
-        @if($p->status == 'dipinjam')
-        <form action="/kembali/{{ $p->id }}" method="POST">
-            @csrf
-            <form action="/pinjam/{{ $b->id }}" method="POST">
-    
-            <button type="submit">Pinjam</button>
-        </form>
-            <button type="submit">Kembalikan</button>
-        </form>
-        @endif
-    </p>
-@endforeach
+            <td>
+                @if($b->approved)
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        Sudah Dipinjam
+                    </button>
+                @elseif(in_array($b->id, $requestedBukuIds))
+                    <button class="btn btn-warning btn-sm" disabled>
+                        Menunggu Persetujuan
+                    </button>
+                @else
+                    <form action="{{ route('pinjam.store') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="buku_id" value="{{ $b->id }}">
+                        <button class="btn btn-primary btn-sm">
+                            Ajukan Pinjaman
+                        </button>
+                    </form>
+                @endif
+            </td>
+        </tr>
+        @empty
+        <tr>
+            <td colspan="5" class="text-center">Belum ada buku</td>
+        </tr>
+        @endforelse
+    </tbody>
+</table>
+@endsection

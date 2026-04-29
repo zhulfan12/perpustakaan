@@ -2,63 +2,69 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Buku;
 use Illuminate\Http\Request;
 
 class BukuController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    public function __construct()
+    {
+        $this->middleware('role:admin,petugas')->except('index');
+    }
+
     public function index()
     {
-        //
+        $bukus = Buku::all();
+        return view('buku.index', compact('bukus'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return view('buku.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
+{
+    $request->validate([
+        'judul' => 'required',
+        'penulis' => 'required',
+    ]);
+
+    Buku::create([
+        'judul' => $request->judul,
+        'penulis' => $request->penulis,
+    ]);
+
+    return redirect('/buku')->with('success', 'Buku berhasil ditambahkan');
+}
+    public function edit($id)
     {
-        //
+        $buku = Buku::findOrFail($id);
+        return view('buku.edit', compact('buku'));
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+  
+    public function update(Request $request, $id)
     {
-        //
+        $request->validate([
+            'judul' => 'required',
+            'penulis' => 'required',
+        ]);
+
+        $buku = Buku::findOrFail($id);
+        $buku->update([
+            'judul' => $request->judul,
+            'penulis' => $request->penulis,
+        ]);
+
+        return redirect()->route('buku.index')->with('success', 'Buku berhasil diupdate');
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function destroy($id)
     {
-        //
-    }
+        $buku = Buku::findOrFail($id);
+        $buku->delete();
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return redirect()->route('buku.index')->with('success', 'Buku berhasil dihapus');
     }
 }

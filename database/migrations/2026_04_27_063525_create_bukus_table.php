@@ -18,7 +18,7 @@ return new class extends Migration
             $table->date('tanggal_pinjam');
             $table->date('tanggal_kembali')->nullable();
             $table->enum('status', ['dipinjam', 'dikembalikan']);
-            $table->timestamps();           
+            $table->timestamps();
         });
     }
 
@@ -27,6 +27,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('bukus');
+        Schema::create('bukus', function (Blueprint $table) {
+            $table->id();
+            $table->string('judul');
+            $table->string('penulis');
+            $table->timestamps();
+        });
     }
 };
